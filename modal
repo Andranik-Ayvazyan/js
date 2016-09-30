@@ -1,0 +1,121 @@
+    /**
+     * ==========================
+     * Twitter Bootstrap extended Modal plugin
+     * ==========================
+     */
+    var _modalshow = $.fn.modal.Constructor.prototype.show;
+    var _modalhide = $.fn.modal.Constructor.prototype.hide;
+    var oldModal = {};
+    var modalIsActive = true;
+
+    $.fn.modal.Constructor.prototype.show = function (e) {
+
+        var that = this;
+        var modal = that.$element;
+        var el = $(e || modal);
+        var title = $(el).data('title'),
+            iframe = $(el).attr('data-iframe'),
+            help = $(el).data('help'),
+            script = $(el).data('script'),
+            footer = $('.modal-footer', modal),
+            okButton = $('[data-trigger="save"]', modal),
+            remoteModal = $(el).data('get-content'),
+            dataTarget = $(el).data('target') ;
+        oldModal[modal.attr('id')] = $(modal).html();
+
+        if (title) {
+            $('.modal-title', modal).html(title);
+        }
+
+        if (iframe) {
+            var frame = document.createElement('iframe');
+            frame.setAttribute('id', 'modalIframe');
+            frame.setAttribute('width', '100%');
+            frame.setAttribute('height', '550');
+            frame.setAttribute('scrolling', 'auto');
+            frame.setAttribute('frameborder', '0');
+            frame.setAttribute('src', iframe);
+
+            $('.modal-body', modal).html(frame);
+        }
+
+        if (okButton.length) {
+            var okData = okButton.attr('data-ok'),
+                okOn = okButton.attr('data-ok-on');
+            if (okData) {
+                okData = eval(' (' + okData + ') ');
+                var save = okButton;
+                (okData.name ? save.html(okData.name) : '');
+                (okData.url ? save.attr('href', okData.url) : '');
+                (okData.title ? save.attr('title', okData.title) : '');
+            }
+
+            okButton.off((okOn ? okOn : 'click')).on((okOn ? okOn : 'click'), function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                $(e.currentTarget).triggerHandler('modal.ok')
+            })
+        }
+
+        if (script) {
+
+        }
+
+        if (remoteModal && modalIsActive) {
+
+            $.ajax(remoteModal).then(function (dd) {
+
+                if(dataTarget) {
+                    $(dataTarget + ' .modal-content').html($(dd)).promise().then(function () {
+                        modal.triggerHandler('loaded.bs.modal.custom', that);
+                        modalIsActive = false;
+                        remoteModal = false;
+                        $.fn.modal.Constructor.prototype.show.apply(that, arguments);
+                    });
+                } else {
+                    modal.triggerHandler('loaded.bs.modal.custom', that);
+                    modalIsActive = false;
+                    remoteModal = false;
+                    $.fn.modal.Constructor.prototype.show.apply(that, arguments);
+                }
+
+            });
+
+        }
+
+        if (help) {
+            $(modal).attr('id', 'help-dialog');
+            $('.modal-title', modal).html('Help');
+            $('.modal-body', modal).load(help);
+            $('.modal-footer', modal).remove();
+        }
+
+        var tablesWrapper = $(modal).closest('#table-wrapper');
+        var tables = $('[data-table-modal-id]', modal);
+        if (tablesWrapper.length && tableD && tables.length) {
+            if (tableD.update) {
+                tableD.update('[data-table-modal-id]');
+
+            }
+        }
+
+        if (!remoteModal) {
+            _modalshow.apply(this, arguments);
+        }
+    };
+    $.fn.modal.Constructor.prototype.hide = function () {
+
+        var modal = this.$element;
+        var tablesWrapper = $(modal).closest('#table-wrapper');
+        var tables = $('[data-table-modal-id]', modal);
+        if (tablesWrapper.length && tableD && tables.length) {
+            if (tableD.destroy)
+                tableD.destroy('[data-table-modal-id]');
+            tables.empty();
+        }
+        modal.removeData();
+        modal.html(oldModal[modal.attr('id')]);
+        _modalhide.apply(this, arguments);
+
+        delete oldModal[modal.attr('id')];
+    };
